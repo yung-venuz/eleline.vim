@@ -216,7 +216,7 @@ function! s:StatusLine() abort
   let l:ff = '%{&ff} %*'
   let l:pct = '%#Eleline9# %P %*'
   return l:common
-        \ .'%='.l:m_r_f.l:pos.l:enc.l:ff.l:pct
+        \ .'%='.l:m_r_f.l:pct " .l:enc.l:ff.l:pct
 endfunction
 
 let s:colors = {
