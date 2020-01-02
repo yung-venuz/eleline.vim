@@ -14,19 +14,18 @@ let s:save_cpo = &cpoptions
 set cpoptions&vim
 
 let s:font = get(g:, 'eleline_powerline_fonts', get(g:, 'airline_powerline_fonts', 0))
-let s:f_icon = s:font ? get(g:, 'eleline_function_icon', " \uf794 ") : ''
+let s:fn_icon = s:font ? get(g:, 'eleline_function_icon', " \uf794 ") : ''
 let s:gui = has('gui_running')
+let s:is_win = has('win32')
 let s:jobs = {}
 
 function! ElelineBufnrWinnr() abort
   let l:bufnr = bufnr('%')
   if !s:gui
-    function! s:circled_num(num) abort
-      return nr2char(9311 + a:num)
-    endfunction
-    let l:bufnr = l:bufnr > 20 ? l:bufnr : s:circled_num(l:bufnr).' '
+		" transform to circled num: nr2char(9311 + l:bufnr)
+		let l:bufnr = l:bufnr > 20 ? l:bufnr : nr2char(9311 + l:bufnr).' '
   endif
-  return '  '.l:bufnr." ❖ ".winnr().' '
+  return '  '.l:bufnr.' ❖ '.winnr().' '
 endfunction
 
 function! ElelineTotalBuf() abort
@@ -61,7 +60,7 @@ endfunction
 function! ElelineError() abort
   if exists('g:loaded_ale')
     let l:counts = ale#statusline#Count(bufnr(''))
-      return l:counts[0] == 0 ? '' : '•'.l:counts[0].' '
+    return l:counts[0] == 0 ? '' : '•'.l:counts[0].' '
   endif
   return ''
 endfunction
@@ -75,9 +74,13 @@ function! ElelineWarning() abort
 endfunction
 
 function! s:is_tmp_file() abort
-  if !empty(&buftype) | return 1 | endif
-  if index(['startify', 'gitcommit'], &filetype) > -1 | return 1 | endif
-  if expand('%:p') =~# '^/tmp' | return 1 | endif
+	if !empty(&buftype)
+        \ || index(['startify', 'gitcommit'], &filetype) > -1
+        \ || expand('%:p') =~# '^/tmp'
+    return 1
+  else
+    return 0
+  endif
 endfunction
 
 " Reference: https://github.com/chemzqm/vimrc/blob/master/statusline.vim
@@ -96,7 +99,7 @@ function! ElelineGitBranch(...) abort
   let argv = add(has('win32') ? ['cmd', '/c']: ['bash', '-c'], 'git branch')
   if exists('*job_start')
     let job = job_start(argv, {'out_io': 'pipe', 'err_io':'null',  'out_cb': function('s:out_cb')})
-    if job_status(job) == 'fail' | return '' | endif
+    if job_status(job) ==# 'fail' | return '' | endif
     let s:cwd = root
     let job_id = matchstr(job, '\d\+')
     let s:jobs[job_id] = root
@@ -119,7 +122,7 @@ function! ElelineGitBranch(...) abort
 endfunction
 
 function! s:out_cb(channel, message) abort
-  if a:message =~ "^* "
+	if a:message =~# '^* '
     let l:job = ch_getjob(a:channel)
     let l:job_id = matchstr(string(l:job), '\d\+')
     if !has_key(s:jobs, l:job_id) | return | endif
@@ -132,7 +135,7 @@ endfunction
 function! s:on_exit(job_id, data, _event) dict abort
   if !has_key(s:jobs, a:job_id) | return | endif
   if v:dying | return | endif
-  let l:cur_branch = join(filter(self.stdout, 'v:val =~ "*"'))
+  let l:cur_branch = join(filter(self.stdout, 'v:val =~# "*"'))
   if !empty(l:cur_branch)
     let l:branch = substitute(l:cur_branch, '*', s:font ? "  \ue0a0" : ' Git:', '')
     call s:SetGitBranch(self.cwd, l:branch.' ')
@@ -148,11 +151,7 @@ function! s:SetGitBranch(root, str) abort
   let root = a:root
   for nr in buf_list
     let path = fnamemodify(bufname(nr), ':p')
-    if has('win32')
-      let path = substitute(path, '\', '/', 'g')
-      let root = substitute(root, '\', '/', 'g')
-    endif
-    if match(path, a:root) >= 0
+    if match(path, root) >= 0
       call setbufvar(nr, 'eleline_branch', a:str)
     endif
   endfor
@@ -178,7 +177,7 @@ function! ElelineLCN() abort
 endfunction
 
 function! ElelineVista() abort
-  return !empty(get(b:, 'vista_nearest_method_or_function', '')) ? s:f_icon.b:vista_nearest_method_or_function : ''
+  return !empty(get(b:, 'vista_nearest_method_or_function', '')) ? s:fn_icon.b:vista_nearest_method_or_function : ''
 endfunction
 
 function! ElelineCoc() abort
@@ -299,9 +298,9 @@ function! s:hi_statusline() abort
 endfunction
 
 function! s:InsertStatuslineColor(mode) abort
-  if a:mode == 'i'
+  if a:mode ==# 'i'
     call s:hi('ElelineCurFname' , [251, 32] , [251, 89])
-  elseif a:mode == 'r'
+  elseif a:mode ==# 'r'
     call s:hi('ElelineCurFname' , [232, 160], [232, 160])
   else
     call s:hi('ElelineCurFname' , [232, 178], [89, ''])
