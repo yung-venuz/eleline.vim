@@ -1,6 +1,7 @@
 " =============================================================================
 " Filename: eleline.vim
 " Author: Liu-Cheng Xu
+" Fork: theniceboy
 " URL: https://github.com/liuchengxu/eleline.vim
 " License: MIT License
 " =============================================================================
@@ -193,7 +194,7 @@ function! s:StatusLine() abort
   endfunction
   let l:bufnr_winnr = s:def('ElelineBufnrWinnr')
   let l:paste = s:def('ElelinePaste')
-  let l:curfname = s:def('ElelineCurFname')
+  let l:curfname = s:def('ElelineCurFname').'%m%r'
   let l:branch = s:def('ElelineGitBranch')
   let l:status = s:def('ElelineGitStatus')
   let l:error = s:def('ElelineError')
@@ -203,19 +204,19 @@ function! s:StatusLine() abort
   let l:coc = '%{ElelineCoc()}'
   let l:vista = '%#ElelineVista#%{ElelineVista()}%*'
   let l:prefix = l:bufnr_winnr.l:paste
-  let l:common = l:curfname.l:branch.l:status.l:error.l:warning.l:tags.l:lcn.l:coc.l:vista
   if get(g:, 'eleline_slim', 0)
     return l:prefix.'%<'.l:common
   endif
   let l:tot = s:def('ElelineTotalBuf')
-  let l:fsize = '%#ElelineFsize#%{ElelineFsize(@%)}%*'
-  let l:m_r_f = '%#Eleline7# %m%r%y %*'
-  let l:pos = '%#Eleline8# '.(s:font?"\ue0a1":'').'%l/%L:%c%V |'
+  let l:fsize = '%#ElelineFsize#%{ElelineFsize(@%)}'
+  let l:m_r_f = '%#Eleline7# %y %*'
+  let l:pos = '%#Eleline8# '.(s:font?"\ue0a1":'').'%l/%L:%c%V '
   let l:enc = ' %{&fenc != "" ? &fenc : &enc} | %{&bomb ? ",BOM " : ""}'
   let l:ff = '%{&ff} %*'
   let l:pct = '%#Eleline9# %P %*'
+  let l:common = l:paste.l:curfname.l:branch.' '.l:status.l:error.l:warning.l:tags.l:lcn.l:coc.l:vista
   return l:common
-        \ .'%='.l:m_r_f.l:pct " .l:enc.l:ff.l:pct
+        \ .'%='.l:m_r_f.l:pct.l:pos.l:fsize " .l:enc.l:ff.l:pct
 endfunction
 
 let s:colors = {
