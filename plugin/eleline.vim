@@ -1,4 +1,4 @@
-" =============================================================================
+" ============================================================================
 " Filename: eleline.vim
 " Author: Liu-Cheng Xu
 " Fork: theniceboy
@@ -18,6 +18,9 @@ let s:font = get(g:, 'eleline_powerline_fonts', get(g:, 'airline_powerline_fonts
 let s:fn_icon = s:font ? get(g:, 'eleline_function_icon', " \uf794 ") : ''
 let s:gui = has('gui_running')
 let s:is_win = has('win32')
+let s:git_branch_cmd = add(s:is_win ? ['cmd', '/c'] : ['bash', '-c'], 'git branch')
+let s:git_branch_symbol = s:font ? " \ue0a0 " : ' Git:'
+let s:git_branch_star_substituted = s:font ? "  \ue0a0" : '  Git:'
 let s:jobs = {}
 
 function! ElelineBufnrWinnr() abort
@@ -60,16 +63,16 @@ endfunction
 
 function! ElelineError() abort
 	if exists('g:loaded_ale')
-		let l:counts = ale#statusline#Count(bufnr(''))
-		return l:counts[0] == 0 ? '' : '•'.l:counts[0].' '
+		let s:ale_counts = ale#statusline#Count(bufnr(''))
+		return s:ale_counts[0] == 0 ? '' : '•'.s:ale_counts[0].' '
 	endif
 	return ''
 endfunction
 
 function! ElelineWarning() abort
 	if exists('g:loaded_ale')
-		let l:counts = ale#statusline#Count(bufnr(''))
-		return l:counts[1] == 0 ? '' : '•'.l:counts[1].' '
+		" Ensure ElelineWarning() is called after ElelineError() so that s:ale_counts can be reused.
+		return s:ale_counts[1] == 0 ? '' : '•'.s:ale_counts[1].' '
 	endif
 	return ''
 endfunction
@@ -90,22 +93,22 @@ function! ElelineGitBranch(...) abort
 	let reload = get(a:, 1, 0) == 1
 	if exists('b:eleline_branch') && !reload | return b:eleline_branch | endif
 	if !exists('*FugitiveExtractGitDir') | return '' | endif
-	let roots = values(s:jobs)
-	let dir = get(b:, 'git_dir', FugitiveExtractGitDir(resolve(expand('%:p'))))
+	let dir = exists('b:git_dir') ? b:git_dir : FugitiveExtractGitDir(resolve(expand('%:p')))
 	if empty(dir) | return '' | endif
 	let b:git_dir = dir
+	let roots = values(s:jobs)
 	let root = fnamemodify(dir, ':h')
 	if index(roots, root) >= 0 | return '' | endif
 
 	let argv = add(has('win32') ? ['cmd', '/c']: ['bash', '-c'], 'git branch')
 	if exists('*job_start')
-		let job = job_start(argv, {'out_io': 'pipe', 'err_io':'null',  'out_cb': function('s:out_cb')})
+		let job = job_start(s:git_branch_cmd, {'out_io': 'pipe', 'err_io':'null', 'out_cb': function('s:out_cb')})
 		if job_status(job) ==# 'fail' | return '' | endif
 		let s:cwd = root
 		let job_id = matchstr(job, '\d\+')
 		let s:jobs[job_id] = root
 	elseif exists('*jobstart')
-		let job_id = jobstart(argv, {
+		let job_id = jobstart(s:git_branch_cmd, {
 			\ 'cwd': root,
 			\ 'stdout_buffered': v:true,
 			\ 'stderr_buffered': v:true,
@@ -115,8 +118,7 @@ function! ElelineGitBranch(...) abort
 		let s:jobs[job_id] = root
 	elseif exists('g:loaded_fugitive')
 		let l:head = fugitive#head()
-		let l:symbol = s:font ? " \ue0a0 " : ' Git:'
-		return empty(l:head) ? '' : l:symbol.l:head . ' '
+		return empty(l:head) ? '' : s:git_branch_symbol.l:head . ' '
 	endif
 
 	return ''
@@ -124,10 +126,9 @@ endfunction
 
 function! s:out_cb(channel, message) abort
 	if a:message =~# '^* '
-		let l:job = ch_getjob(a:channel)
-		let l:job_id = matchstr(string(l:job), '\d\+')
+		let l:job_id = ch_info(a:channel)['id']
 		if !has_key(s:jobs, l:job_id) | return | endif
-		let l:branch = substitute(a:message, '*', s:font ? "  \ue0a0" : '  Git:', '')
+		let l:branch = substitute(a:message, '*', s:git_branch_star_substituted, '')
 		call s:SetGitBranch(s:cwd, l:branch.' ')
 		call remove(s:jobs, l:job_id)
 	endif
@@ -138,7 +139,7 @@ function! s:on_exit(job_id, data, _event) dict abort
 	if v:dying | return | endif
 	let l:cur_branch = join(filter(self.stdout, 'v:val =~# "*"'))
 	if !empty(l:cur_branch)
-		let l:branch = substitute(l:cur_branch, '*', s:font ? "  \ue0a0" : ' Git:', '')
+		let l:branch = substitute(l:cur_branch, '*', s:git_branch_star_substituted, '')
 		call s:SetGitBranch(self.cwd, l:branch.' ')
 	else
 		let err = join(self.stderr)
@@ -183,7 +184,7 @@ endfunction
 
 function! ElelineCoc() abort
 	if s:is_tmp_file() | return '' | endif
-	if exists('g:coc_status') && get(g:, 'coc_enabled', 0) | return g:coc_status.' ' | endif
+	if get(g:, 'coc_enabled', 0) | return coc#status().' ' | endif
 	return ''
 endfunction
 
